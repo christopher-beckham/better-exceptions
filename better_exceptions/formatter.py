@@ -8,9 +8,13 @@ import os
 import re
 import sys
 import traceback
+import torch
+from torch import nn
 
-from .color import ENCODING, STREAM, SUPPORTS_COLOR, to_byte, to_unicode
+from .color import STREAM, SUPPORTS_COLOR
 from .context import PY3
+#from .encoding import ENCODING, to_byte, to_unicode
+from .color import ENCODING, to_byte, to_unicode
 from .repl import get_repl
 
 
@@ -111,9 +115,17 @@ class ExceptionFormatter(object):
     def get_relevant_names(self, source, tree):
         return [node for node in ast.walk(tree) if isinstance(node, ast.Name)]
 
+    def get_relevant_attrs(self, source, tree):
+        return [node for node in ast.walk(tree) if isinstance(node, ast.Attribute)]
+
     def format_value(self, v):
+        #if v.__class__.__mro__[-2] is nn.Module:
+        #    pass
         try:
-            v = repr(v)
+            if type(v) in [torch.Tensor, nn.Parameter]:
+                v = f"{type(v)}: {v.shape} {v.dtype} {v.device}"
+            else:
+                v = repr(v)
         except KeyboardInterrupt:
             raise
         except BaseException:
@@ -126,17 +138,36 @@ class ExceptionFormatter(object):
 
     def get_relevant_values(self, source, frame, tree):
         names = self.get_relevant_names(source, tree)
+        attrs = self.get_relevant_attrs(source, tree)
         values = []
+
+        print("NAMES (id,col_offset):", [(name.id, name.col_offset) for name in names])
+        print("ATTRS:", [ (attr.attr, attr.value.id, attr.value.col_offset) for attr in attrs])
+
+        dd = {}
+        for attr in attrs:
+            if attr.value.id == 'self':
+                if attr.value.id in frame.f_locals:
+                    val = frame.f_locals.get(attr.value.id,None)
+                elif textt in frame.f_globals:
+                    val = frame.f_globals.get(attr.value.id,None)
+                actual_variable = getattr(val, attr.attr)
+                dd[attr.value.col_offset] = actual_variable
 
         for name in names:
             text = name.id
+            #print(text)
             col = name.col_offset
             if text in frame.f_locals:
                 val = frame.f_locals.get(text, None)
-                values.append((text, col, self.format_value(val)))
+                if col in dd:
+                    formatted_val = self.format_value(dd.get(col))
+                else:
+                    formatted_val = self.format_value(val)
+                values.append( (text, col, formatted_val) )
             elif text in frame.f_globals:
                 val = frame.f_globals.get(text, None)
-                values.append((text, col, self.format_value(val)))
+                values.append( (text, col, self.format_value(val) + "--" + self.format_value(dd.get(col, "None")) ))
 
         values.sort(key=lambda e: e[1])
 
