@@ -10,6 +10,7 @@ import sys
 import traceback
 import torch
 from torch import nn
+import numpy as np
 
 from .color import STREAM, SUPPORTS_COLOR
 from .context import PY3
@@ -124,6 +125,8 @@ class ExceptionFormatter(object):
         try:
             if type(v) in [torch.Tensor, nn.Parameter]:
                 v = f"{type(v)}: {v.shape} {v.dtype} {v.device}"
+            elif type(v) == np.ndarray:
+                v = f"{type(v)}: {v.shape} {v.dtype}"                
             else:
                 v = repr(v)
         except KeyboardInterrupt:
@@ -142,14 +145,15 @@ class ExceptionFormatter(object):
         values = []
 
         print("NAMES (id,col_offset):", [(name.id, name.col_offset) for name in names])
-        print("ATTRS:", [ (attr.attr, attr.value.id, attr.value.col_offset) for attr in attrs])
+        print("ATTRS:", [ (attr.attr, type(attr.value), attr.value.col_offset) for attr in attrs])        
+        #print("ATTRS:", [ (attr.attr, attr.value.id, attr.value.col_offset) for attr in attrs])
 
         dd = {}
         for attr in attrs:
-            if attr.value.id == 'self':
+            if hasattr(attr.value, 'id') and attr.value.id == 'self':
                 if attr.value.id in frame.f_locals:
                     val = frame.f_locals.get(attr.value.id,None)
-                elif textt in frame.f_globals:
+                elif attr.value.id in frame.f_globals:
                     val = frame.f_globals.get(attr.value.id,None)
                 actual_variable = getattr(val, attr.attr)
                 dd[attr.value.col_offset] = actual_variable

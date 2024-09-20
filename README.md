@@ -6,20 +6,16 @@ Pretty and more helpful exceptions in Python, automatically.
 
 ## Usage
 
-Install `better_exceptions` via pip:
+This is a modified version of better_exceptions to support nicer exception outputs for development involving PyTorch.
 
-```console
-pip install better_exceptions
+I am currently testing this out in "dev" mode. Install `better_exceptions` via `pip install -e .` and in your code make sure to do:
+
+```python
+import better_exceptions
+better_exceptions.hook()
 ```
 
-And set the `BETTER_EXCEPTIONS` environment variable to any value:
-
-```bash
-export BETTER_EXCEPTIONS=1  # Linux / OSX
-setx BETTER_EXCEPTIONS 1    # Windows
-```
-
-That's it!
+If you get some complaint about "better_exceptions_hook.pth" just remove it, since I don't trust it right now.
 
 ### Python REPL (Interactive Shell)
 
